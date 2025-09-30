@@ -2,54 +2,42 @@
 
 namespace Drupal\csc_admin\Commands;
 
-use Drush\Commands\DrushCommands;
 use Drupal\Core\Database\Connection;
-use Drupal\file\Entity\File;
+use Drupal\Core\File\FileUrlGenerator; // <-- correct class
+use Drush\Commands\DrushCommands;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\file\Entity\File;
 
-/**
- * Drush commands for cleaning up stale media file references.
- */
 class CscStaleFilesCommands extends DrushCommands {
 
-  /**
-   * @var \Drupal\Core\Database\Connection
-   */
-  protected $database;
+  protected Connection $database;
+  protected FileUrlGenerator $fileUrlGenerator;
 
-  /**
-   * @var \Drupal\file\FileUrlGeneratorInterface
-   */
-  protected $fileUrlGenerator;
-
-  /**
-   * Construct the command object.
-   */
-  public function __construct(Connection $database, $file_url_generator) {
+  public function __construct(Connection $database, FileUrlGenerator $file_url_generator) {
     parent::__construct();
     $this->database = $database;
     $this->fileUrlGenerator = $file_url_generator;
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('database'),
-      $container->get('file_url_generator')
+      $container->get('file_url_generator') // returns Drupal\Core\File\FileUrlGenerator
     );
   }
 
   /**
-   * List stale file references in media entities.
+   * List or delete stale file references in media entities.
    *
    * @command csc:stale-files
    * @aliases stale-files
+   * @option delete Delete stale files instead of just listing them.
    * @usage drush csc:stale-files
-   *   Lists stale file IDs, media IDs, and URIs.
+   *   Lists stale files.
+   * @usage drush csc:stale-files --delete
+   *   Deletes stale files.
    */
-  public function listStaleFiles() {
+  public function listStaleFiles(array $options = ['delete' => false]) {
     $query = <<<SQL
 SELECT fu.fid,
        fu.id AS media_id,
@@ -72,17 +60,23 @@ SQL;
       return;
     }
 
+    $delete = $options['delete'] ?? FALSE;
     $rows = [];
+
     foreach ($results as $row) {
       $fid = $row->fid;
       $media_id = $row->media_id;
       $uri = $row->file_uri;
-
-      // Try to generate a URL (if the file still exists).
       $url = '';
+
       $file = File::load($fid);
       if ($file) {
         $url = $this->fileUrlGenerator->generateAbsoluteString($file->getFileUri());
+      }
+
+      if ($delete && $file) {
+        $file->delete();
+        $this->logger()->notice("Deleted stale file $fid from media $media_id");
       }
 
       $rows[] = [
@@ -93,7 +87,13 @@ SQL;
       ];
     }
 
-    $this->io()->table(['FID', 'Media ID', 'URI', 'URL'], $rows);
+    if (!$delete) {
+      $this->io()->table(['FID', 'Media ID', 'URI', 'URL'], $rows);
+      $this->io()->warning('Run with --delete to remove these files.');
+    }
+    else {
+      $this->io()->success('Stale files deleted.');
+    }
   }
 
 }
