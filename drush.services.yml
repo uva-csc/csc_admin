@@ -12,3 +12,11 @@ services:
       - '@logger.factory'
     tags:
       - { name: drush.command }
+
+  csc_admin_stalefiles.commands:
+    class: Drupal\csc_admin\Commands\CscStaleFilesCommands
+    arguments:
+      - '@database'
+      - '@file_url_generator'
+    tags:
+      - { name: drush.command }
