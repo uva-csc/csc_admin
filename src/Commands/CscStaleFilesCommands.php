@@ -20,7 +20,7 @@ class CscStaleFilesCommands extends DrushCommands {
   }
 
   public static function create(ContainerInterface $container) {
-    return new static(
+    return new self(
       $container->get('database'),
       $container->get('file_url_generator') // returns Drupal\Core\File\FileUrlGenerator
     );
