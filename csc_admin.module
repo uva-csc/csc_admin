@@ -1,0 +1,19 @@
+<?php
+/**
+ * Implements hook_update_projects_alter().
+ * disables update checking for csc_bs_sass
+ */
+function csc_admin_update_projects_alter(&$projects) {
+  unset($projects['csc_bs_sass']);
+}
+
+function csc_log_admin($msg='no message sent to log function', $ltype='notice', $sufx='') {
+  if (strlen($sufx) > 0) { $sufx = " $sufx"; }
+  if ($ltype == 'warning') {
+    Drupal::logger("csc_bs_sass$sufx")->warning($msg);
+  } elseif ($ltype == 'error') {
+    Drupal::logger("csc_bs_sass$sufx")->error($msg);
+  } else {
+    Drupal::logger("csc_bs_sass$sufx")->notice($msg);
+  }
+}
